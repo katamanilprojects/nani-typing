@@ -1,6 +1,9 @@
 package com.manacdc.nanityping1
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
+import android.os.Build
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -8,6 +11,8 @@ import android.util.Log
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -53,6 +58,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var selectedMenuCard by mutableStateOf(MenuCard.LEVEL_1)
     private var selectedSettingsRow by mutableStateOf(SettingsRow.SPEED)
     private var photoCount by mutableIntStateOf(0)
+    private var hasAllFilesAccess by mutableStateOf(false)
     private var speechSpeed by mutableFloatStateOf(AppSettings.DEFAULT_SPEED)
     private var speechPitch by mutableFloatStateOf(AppSettings.DEFAULT_PITCH)
     private var speechLocaleCode by mutableStateOf(AppSettings.DEFAULT_LOCALE)
@@ -74,12 +80,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         speechSpeed = AppSettings.getSpeed(applicationContext)
         speechPitch = AppSettings.getPitch(applicationContext)
         speechLocaleCode = AppSettings.getLocaleCode(applicationContext)
+        hasAllFilesAccess = ImageManager.hasAllFilesAccess()
 
         try {
             tts = TextToSpeech(applicationContext, this)
         } catch (e: Throwable) {
             Log.e("MainActivity", "TTS setup safety failure: ${e.message}")
         }
+
+        // Request storage/media permissions at runtime on TV if needed
+        checkAndRequestStoragePermissions()
 
         // Index real-world trigger images on startup (Zero-DB Filename-as-Trigger)
         photoCount = ImageManager.reloadRegistry(applicationContext)
@@ -103,6 +113,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         speed = speechSpeed,
                         pitch = speechPitch,
                         localeCode = speechLocaleCode,
+                        hasAllFilesAccess = hasAllFilesAccess,
                         onCycleSpeed = {
                             handleSettingsRowAction(SettingsRow.SPEED, direction = 1)
                         },
@@ -114,6 +125,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         },
                         onReloadPhotos = {
                             photoCount = ImageManager.reloadRegistry(applicationContext)
+                        },
+                        onRequestAllFilesAccess = {
+                            ImageManager.requestAllFilesAccess(this)
                         },
                         onBackToMenu = {
                             currentScreen = AppScreen.MENU
@@ -395,7 +409,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 AppSettings.applyToTts(applicationContext, tts)
             }
             SettingsRow.RELOAD_STORAGE -> {
+                hasAllFilesAccess = ImageManager.hasAllFilesAccess()
                 photoCount = ImageManager.reloadRegistry(applicationContext)
+            }
+            SettingsRow.USB_PERMISSION -> {
+                ImageManager.requestAllFilesAccess(this)
             }
             SettingsRow.BACK_TO_MENU -> {
                 currentScreen = AppScreen.MENU
@@ -406,6 +424,31 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     override fun onResume() {
         super.onResume()
         // Re-index images on resume so hot-plugged USB drives or newly copied photos appear immediately
+        hasAllFilesAccess = ImageManager.hasAllFilesAccess()
+        photoCount = ImageManager.reloadRegistry(applicationContext)
+    }
+
+    private fun checkAndRequestStoragePermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, permissionsToRequest.toTypedArray(), 1001)
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        hasAllFilesAccess = ImageManager.hasAllFilesAccess()
         photoCount = ImageManager.reloadRegistry(applicationContext)
     }
 
@@ -419,10 +462,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
                 if (!isNumber && !isSingleLetter) {
                     // Level 2 & 3 triggers for word
-                    val matchingFile = ImageManager.findImageFile(lastWord)
-                    if (matchingFile != null) {
+                    val matchingImage = ImageManager.findImage(lastWord)
+                    if (matchingImage != null) {
                         lifecycleScope.launch {
-                            val bmp = ImageManager.loadSampledBitmap(matchingFile)
+                            val bmp = ImageManager.loadSampledBitmap(applicationContext, matchingImage)
                             pendingImageBitmap = bmp
                         }
                     } else {
@@ -451,10 +494,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 val isSingleLetter = lastWord.length == 1
 
                 if (!isNumber && !isSingleLetter) {
-                    val matchingFile = ImageManager.findImageFile(lastWord)
-                    if (matchingFile != null) {
+                    val matchingImage = ImageManager.findImage(lastWord)
+                    if (matchingImage != null) {
                         lifecycleScope.launch {
-                            val bmp = ImageManager.loadSampledBitmap(matchingFile)
+                            val bmp = ImageManager.loadSampledBitmap(applicationContext, matchingImage)
                             pendingImageBitmap = bmp
                         }
                     } else {

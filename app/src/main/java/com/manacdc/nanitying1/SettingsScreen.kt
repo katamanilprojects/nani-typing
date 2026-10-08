@@ -21,6 +21,7 @@ enum class SettingsRow {
     PITCH,
     LOCALE,
     RELOAD_STORAGE,
+    USB_PERMISSION,
     BACK_TO_MENU
 }
 
@@ -35,10 +36,12 @@ fun SettingsScreen(
     speed: Float,
     pitch: Float,
     localeCode: String,
+    hasAllFilesAccess: Boolean,
     onCycleSpeed: () -> Unit,
     onCyclePitch: () -> Unit,
     onCycleLocale: () -> Unit,
     onReloadPhotos: () -> Unit,
+    onRequestAllFilesAccess: () -> Unit,
     onBackToMenu: () -> Unit
 ) {
     Box(
@@ -111,7 +114,15 @@ fun SettingsScreen(
                     onClick = onReloadPhotos
                 )
 
-                // 5. Back to Menu Row
+                // 5. USB Storage Permission Row
+                SettingItemCard(
+                    title = "USB Drive Access",
+                    value = if (hasAllFilesAccess) "Granted (Full USB Access)" else "Click to Grant Permission",
+                    isSelected = selectedRow == SettingsRow.USB_PERMISSION,
+                    onClick = onRequestAllFilesAccess
+                )
+
+                // 6. Back to Menu Row
                 SettingItemCard(
                     title = "← Return to Main Menu",
                     value = "Press Enter or Esc",
