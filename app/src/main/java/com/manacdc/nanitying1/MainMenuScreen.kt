@@ -6,7 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,21 +37,25 @@ fun MainMenuScreen(
     onSelectCard: (MenuCard) -> Unit,
     onLaunchCard: (MenuCard) -> Unit
 ) {
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFFFFDD0)) // Warm cream canvas
-            .padding(28.dp),
+            .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
+        val isNarrow = maxWidth < 700.dp
+        val scrollState = rememberScrollState()
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.verticalScroll(scrollState)
         ) {
             // App Title
             Text(
                 text = "NANI TYPING",
-                fontSize = 52.sp,
+                fontSize = if (isNarrow) 40.sp else 52.sp,
                 fontWeight = FontWeight.Black,
                 fontFamily = FontFamily.SansSerif,
                 color = Color(0xFF0B1B3D),
@@ -58,53 +64,82 @@ fun MainMenuScreen(
 
             Text(
                 text = "Minimalist Phonics & Engineering Typer",
-                fontSize = 18.sp,
+                fontSize = if (isNarrow) 15.sp else 18.sp,
                 fontWeight = FontWeight.Medium,
                 fontFamily = FontFamily.SansSerif,
                 color = Color(0xFF64748B),
-                modifier = Modifier.padding(top = 6.dp, bottom = 44.dp)
+                modifier = Modifier.padding(top = 6.dp, bottom = if (isNarrow) 24.dp else 44.dp)
             )
 
-            // Cards Row
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(28.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Card 1: Level 1 Free Typing (Default Selected)
-                MenuCardItem(
-                    badge = "LEVEL 1",
-                    title = "Free Typing",
-                    description = "Tactile Phonics, Words\n& Kinetic Physics",
-                    prompt = "Press Enter or Start Typing →",
-                    isSelected = selectedCard == MenuCard.LEVEL_1,
-                    onClick = {
-                        onSelectCard(MenuCard.LEVEL_1)
-                        onLaunchCard(MenuCard.LEVEL_1)
-                    }
-                )
+            // Cards Row / Column
+            if (isNarrow) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    MenuCardItem(
+                        badge = "LEVEL 1",
+                        title = "Free Typing",
+                        description = "Tactile Phonics, Words\n& Kinetic Physics",
+                        prompt = "Press Enter or Start Typing →",
+                        isSelected = selectedCard == MenuCard.LEVEL_1,
+                        onClick = {
+                            onSelectCard(MenuCard.LEVEL_1)
+                            onLaunchCard(MenuCard.LEVEL_1)
+                        }
+                    )
 
-                // Card 2: Settings
-                MenuCardItem(
-                    badge = "PREFERENCES",
-                    title = "Settings",
-                    description = "Voice speed, pitch\n& photo storage",
-                    prompt = "Press Enter to Configure →",
-                    isSelected = selectedCard == MenuCard.SETTINGS,
-                    onClick = {
-                        onSelectCard(MenuCard.SETTINGS)
-                        onLaunchCard(MenuCard.SETTINGS)
-                    }
-                )
+                    MenuCardItem(
+                        badge = "PREFERENCES",
+                        title = "Settings",
+                        description = "Voice speed, pitch\n& photo storage",
+                        prompt = "Press Enter to Configure →",
+                        isSelected = selectedCard == MenuCard.SETTINGS,
+                        onClick = {
+                            onSelectCard(MenuCard.SETTINGS)
+                            onLaunchCard(MenuCard.SETTINGS)
+                        }
+                    )
+                }
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(28.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    MenuCardItem(
+                        badge = "LEVEL 1",
+                        title = "Free Typing",
+                        description = "Tactile Phonics, Words\n& Kinetic Physics",
+                        prompt = "Press Enter or Start Typing →",
+                        isSelected = selectedCard == MenuCard.LEVEL_1,
+                        onClick = {
+                            onSelectCard(MenuCard.LEVEL_1)
+                            onLaunchCard(MenuCard.LEVEL_1)
+                        }
+                    )
+
+                    MenuCardItem(
+                        badge = "PREFERENCES",
+                        title = "Settings",
+                        description = "Voice speed, pitch\n& photo storage",
+                        prompt = "Press Enter to Configure →",
+                        isSelected = selectedCard == MenuCard.SETTINGS,
+                        onClick = {
+                            onSelectCard(MenuCard.SETTINGS)
+                            onLaunchCard(MenuCard.SETTINGS)
+                        }
+                    )
+                }
             }
 
             // Keyboard navigation cue
             Text(
                 text = "[ ← → Arrow Keys to select • Enter to start ]",
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = FontFamily.SansSerif,
                 color = Color(0xFF94A3B8),
-                modifier = Modifier.padding(top = 40.dp)
+                modifier = Modifier.padding(top = if (isNarrow) 24.dp else 40.dp)
             )
         }
     }

@@ -4,7 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -38,6 +40,7 @@ fun SettingsScreen(
     pitch: Float,
     localeCode: String,
     hasAllFilesAccess: Boolean,
+    isTtsReady: Boolean = true,
     onCycleSpeed: () -> Unit,
     onCyclePitch: () -> Unit,
     onCycleLocale: () -> Unit,
@@ -45,16 +48,20 @@ fun SettingsScreen(
     onRequestAllFilesAccess: () -> Unit,
     onBackToMenu: () -> Unit
 ) {
+    val scrollState = rememberScrollState()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFFFFDD0))
-            .padding(32.dp),
+            .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.widthIn(max = 640.dp)
+            modifier = Modifier
+                .widthIn(max = 640.dp)
+                .verticalScroll(scrollState)
         ) {
             Text(
                 text = "SETTINGS",
@@ -70,8 +77,23 @@ fun SettingsScreen(
                 fontSize = 15.sp,
                 color = Color(0xFF64748B),
                 fontFamily = FontFamily.SansSerif,
-                modifier = Modifier.padding(top = 4.dp, bottom = 28.dp)
+                modifier = Modifier.padding(top = 4.dp, bottom = if (!isTtsReady) 12.dp else 28.dp)
             )
+
+            if (!isTtsReady) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFFEF3C7),
+                    modifier = Modifier.padding(bottom = 20.dp)
+                ) {
+                    Text(
+                        text = "⚠️ Speech Engine Initializing or Unavailable — Photos and recorded voices remain active.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF92400E),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
 
             Column(
                 verticalArrangement = Arrangement.spacedBy(14.dp),

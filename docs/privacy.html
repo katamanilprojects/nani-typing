@@ -56,21 +56,21 @@
       </p>
       <ul>
         <li><strong>No Internet Permission:</strong> The app does NOT declare <code>android.permission.INTERNET</code>. The application is physically incapable of connecting to any server, website, or cloud service over Wi-Fi, Ethernet, or mobile data.</li>
-        <li><strong>Local Storage Permissions (<code>MANAGE_EXTERNAL_STORAGE</code>, <code>READ_MEDIA_IMAGES</code>, <code>READ_MEDIA_AUDIO</code>, <code>READ_EXTERNAL_STORAGE</code>):</strong> 
-          These permissions are requested strictly to allow Android TV users to plug in a USB flash drive or specify a local directory containing real-world family photos and voice recordings (e.g., <code>mamma.jpg</code>, <code>amma.m4a</code>, <code>hen.png</code>). 
-          All media indexing, downsampling, and audio playback occur entirely in on-device local memory. No file data is ever modified, uploaded, copied, or transmitted off the device.
+        <li><strong>Media Read Permissions (<code>READ_MEDIA_IMAGES</code>, <code>READ_MEDIA_AUDIO</code>, <code>READ_EXTERNAL_STORAGE</code>):</strong> 
+          These permissions are requested strictly to allow users to access a connected USB drive or local folder containing real-world family photos and voice recordings (e.g., <code>mamma.jpg</code>, <code>amma.m4a</code>, <code>hen.png</code>). 
+          All media indexing, downsampling, and audio playback occur entirely on-device. No file data is ever modified, uploaded, copied, or transmitted off the device.
         </li>
         <li><strong>Microphone & Camera:</strong> The app does not request or access the device camera or microphone.</li>
       </ul>
 
-      <h2>3. Device Text-to-Speech (TTS)</h2>
+      <h2>3. Device Text-to-Speech (TTS) & Local Audio</h2>
       <p>
-        Spoken letter names, words, and sentences are synthesized locally using the device's default Android Text-to-Speech engine. No voice recordings or audio inputs are generated, recorded, or transmitted.
+        Spoken letter names, words, and sentences are synthesized locally using the device's on-device Android Text-to-Speech engine. Custom voice recordings are played directly from local storage. No voice recordings or audio inputs are generated, recorded, or transmitted to any cloud service.
       </p>
 
-      <h2>4. Data Security</h2>
+      <h2>4. Data Storage & Security</h2>
       <p>
-        Because all application state and typing data reside solely in the device's volatile memory (RAM) and are permanently erased when the app is closed or reset, no user data exists to be compromised or breached.
+        Child typing sessions and on-screen text reside solely in volatile device memory (RAM) and are permanently discarded when cleared or closed. Parent preferences (such as speech rate, pitch, and accent selection) are stored locally on the device using Android SharedPreferences. No personal user data exists on disk to be compromised or breached.
       </p>
 
       <h2>5. Changes to This Policy</h2>

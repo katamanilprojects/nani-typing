@@ -83,7 +83,12 @@ object SoundManager {
      * Plays the custom recorded voice with zero perceivable latency.
      * Uses USAGE_ASSISTANCE_ACCESSIBILITY audio stream to prevent TV HDMI power-saving mute.
      */
-    fun play(context: Context, sound: SoundEntry, onCompletion: (() -> Unit)? = null) {
+    fun play(
+        context: Context,
+        sound: SoundEntry,
+        onCompletion: (() -> Unit)? = null,
+        onError: (() -> Unit)? = null
+    ) {
         stop()
 
         try {
@@ -100,7 +105,7 @@ object SoundManager {
                 } else if (sound.uri != null) {
                     setDataSource(context, sound.uri)
                 } else {
-                    onCompletion?.invoke()
+                    onError?.invoke() ?: onCompletion?.invoke()
                     return
                 }
 
@@ -109,7 +114,7 @@ object SoundManager {
                         mp.start()
                     } catch (e: Exception) {
                         Log.e(TAG, "Error starting playback: ${e.message}")
-                        onCompletion?.invoke()
+                        onError?.invoke() ?: onCompletion?.invoke()
                     }
                 }
 
@@ -127,7 +132,7 @@ object SoundManager {
                         mp.release()
                     } catch (e: Exception) {}
                     if (activePlayer == mp) activePlayer = null
-                    onCompletion?.invoke()
+                    onError?.invoke() ?: onCompletion?.invoke()
                     true
                 }
 
@@ -138,7 +143,7 @@ object SoundManager {
         } catch (e: Throwable) {
             Log.e(TAG, "Error preparing custom audio ${sound.displayName}: ${e.message}")
             stop()
-            onCompletion?.invoke()
+            onError?.invoke() ?: onCompletion?.invoke()
         }
     }
 

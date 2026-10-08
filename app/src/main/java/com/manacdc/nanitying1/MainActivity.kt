@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -71,7 +72,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     // Level 2: Real-World Image Association state
     private var activeImageBitmap by mutableStateOf<ImageBitmap?>(null)
+    private var activeImageWord by mutableStateOf("")
     private var pendingImageBitmap: ImageBitmap? = null
+    private var pendingImageWord: String = ""
+    private var photoLoadingJob: Job? = null
+    private var activePhotoWord: String? = null
+    private var lastSpokenWord: String = ""
 
     // Level 2+: Real-World Custom Voice Recording state
     private var pendingCustomSound: SoundEntry? = null
@@ -122,6 +128,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         pitch = speechPitch,
                         localeCode = speechLocaleCode,
                         hasAllFilesAccess = hasAllFilesAccess,
+                        isTtsReady = isTtsReady,
                         onCycleSpeed = {
                             handleSettingsRowAction(SettingsRow.SPEED, direction = 1)
                         },
@@ -155,6 +162,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         if (activeImageBitmap != null) {
                             delay(2800)
                             activeImageBitmap = null
+                            activeImageWord = ""
                         }
                     }
 
@@ -238,14 +246,30 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                                             .padding(32.dp)
                                             .wrapContentSize()
                                     ) {
-                                        Image(
-                                            bitmap = bmp,
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .sizeIn(maxWidth = 640.dp, maxHeight = 480.dp)
-                                                .padding(12.dp),
-                                            contentScale = ContentScale.Fit
-                                        )
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.padding(16.dp)
+                                        ) {
+                                            Image(
+                                                bitmap = bmp,
+                                                contentDescription = null,
+                                                modifier = Modifier
+                                                    .sizeIn(maxWidth = 640.dp, maxHeight = 400.dp)
+                                                    .padding(8.dp),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                            if (activeImageWord.isNotEmpty()) {
+                                                Text(
+                                                    text = activeImageWord,
+                                                    fontSize = 42.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    fontFamily = FontFamily.SansSerif,
+                                                    color = Color(0xFF0B1B3D),
+                                                    letterSpacing = 1.sp,
+                                                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -265,16 +289,29 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        // 🔴 PRE-SCHOOL DEFENSIVE FILTER: Ignore hardware key auto-repeat before anything else
+        if (event != null && event.repeatCount > 0) {
+            return true
+        }
+
+        // Cancel any pending asynchronous photo decodes from previous keystroke
+        photoLoadingJob?.cancel()
+        photoLoadingJob = null
+        activePhotoWord = null
+
         // 🟢 PRE-SCHOOL DEFENSIVE: Stop any ongoing custom audio immediately so typing is never blocked
         SoundManager.stop()
+        try { tts?.stop() } catch (e: Exception) {}
         pendingCustomSound = null
         pendingSentenceAfterCustomSound = null
 
         // Clear visible image & kinetic actions immediately on any user action so typing is never blocked
         if (activeImageBitmap != null) {
             activeImageBitmap = null
+            activeImageWord = ""
         }
         pendingImageBitmap = null
+        pendingImageWord = ""
 
         if (activeKineticAction != null) {
             activeKineticAction = null
@@ -282,11 +319,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         pendingKineticAction = null
 
         event?.let {
-            // 🔴 PRE-SCHOOL DEFENSIVE FILTER: Ignore hardware key auto-repeat
-            if (it.repeatCount > 0) {
-                return true
-            }
-
             val pressedChar = it.unicodeChar.toChar()
 
             when (currentScreen) {
@@ -350,6 +382,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         activeSpeakingIndex = -1
                         checkAndSpeakOnEnter()
                         typedText += "\n"
+                        if (typedText.length > 800) typedText = typedText.takeLast(600)
                         return true
                     }
 
@@ -357,6 +390,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         activeSpeakingIndex = -1
                         checkAndSpeakOnSpace()
                         typedText += " "
+                        if (typedText.length > 800) typedText = typedText.takeLast(600)
                         return true
                     }
 
@@ -392,6 +426,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         }
 
                         typedText += pressedChar
+                        if (typedText.length > 800) typedText = typedText.takeLast(600)
                         return true
                     }
                 }
@@ -504,12 +539,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 val isSingleLetter = lastWord.length == 1
 
                 if (!isNumber && !isSingleLetter) {
-                    // Level 2 & 3 triggers for word
+                    photoLoadingJob?.cancel()
+                    activePhotoWord = lastWord
+                    pendingImageWord = lastWord
+
                     val matchingImage = ImageManager.findImage(lastWord)
                     if (matchingImage != null) {
-                        lifecycleScope.launch {
+                        photoLoadingJob = lifecycleScope.launch {
                             val bmp = ImageManager.loadSampledBitmap(applicationContext, matchingImage)
-                            pendingImageBitmap = bmp
+                            if (activePhotoWord == lastWord) {
+                                pendingImageBitmap = bmp
+                            }
                         }
                     } else {
                         pendingImageBitmap = null
@@ -538,11 +578,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 val isSingleLetter = lastWord.length == 1
 
                 if (!isNumber && !isSingleLetter) {
+                    photoLoadingJob?.cancel()
+                    activePhotoWord = lastWord
+                    pendingImageWord = lastWord
+
                     val matchingImage = ImageManager.findImage(lastWord)
                     if (matchingImage != null) {
-                        lifecycleScope.launch {
+                        photoLoadingJob = lifecycleScope.launch {
                             val bmp = ImageManager.loadSampledBitmap(applicationContext, matchingImage)
-                            pendingImageBitmap = bmp
+                            if (activePhotoWord == lastWord) {
+                                pendingImageBitmap = bmp
+                            }
                         }
                     } else {
                         pendingImageBitmap = null
@@ -575,38 +621,54 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         customSound: SoundEntry? = null,
         sentenceToSpeakAfter: String? = null
     ) {
-        if (isTtsReady && tts != null) {
-            try {
-                var queueMode = TextToSpeech.QUEUE_FLUSH
+        lastSpokenWord = word
 
-                word.forEachIndexed { i, ch ->
-                    val utteranceId = "highlight_${startIndex + i}"
-                    tts?.speak(ch.toString(), queueMode, null, utteranceId)
-                    queueMode = TextToSpeech.QUEUE_ADD
-                    tts?.playSilentUtterance(250, TextToSpeech.QUEUE_ADD, "silence_${startIndex + i}")
-                }
+        // 🟢 DECOUPLING: If TTS engine is not ready or missing on this TV, photos, physics, and custom voice still execute!
+        if (!isTtsReady || tts == null) {
+            activeImageBitmap = pendingImageBitmap
+            pendingImageBitmap = null
+            activeImageWord = pendingImageWord
+            pendingImageWord = ""
 
-                tts?.playSilentUtterance(400, TextToSpeech.QUEUE_ADD, "clear_highlight")
+            activeKineticAction = pendingKineticAction
+            pendingKineticAction = null
 
-                if (customSound != null) {
-                    // Prioritize real-world human voice recording over synthetic TTS
-                    pendingCustomSound = customSound
-                    pendingSentenceAfterCustomSound = sentenceToSpeakAfter
-                    tts?.playSilentUtterance(50, TextToSpeech.QUEUE_ADD, "play_custom_voice")
-                } else {
-                    // Standard synthetic TTS pronunciation
-                    tts?.speak(word, TextToSpeech.QUEUE_ADD, null, "final_word_pronunciation")
-
-                    // 🟢 ENTER KEY ENHANCEMENT: Read all words together like a sentence!
-                    if (!sentenceToSpeakAfter.isNullOrBlank()) {
-                        tts?.playSilentUtterance(450, TextToSpeech.QUEUE_ADD, "pause_before_sentence")
-                        tts?.speak(sentenceToSpeakAfter, TextToSpeech.QUEUE_ADD, null, "sentence_pronunciation")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "speakWholeWordFlow failed: ${e.message}")
-                activeSpeakingIndex = -1
+            if (customSound != null) {
+                SoundManager.play(applicationContext, customSound)
             }
+            return
+        }
+
+        try {
+            var queueMode = TextToSpeech.QUEUE_FLUSH
+
+            word.forEachIndexed { i, ch ->
+                val utteranceId = "highlight_${startIndex + i}"
+                tts?.speak(ch.toString(), queueMode, null, utteranceId)
+                queueMode = TextToSpeech.QUEUE_ADD
+                tts?.playSilentUtterance(250, TextToSpeech.QUEUE_ADD, "silence_${startIndex + i}")
+            }
+
+            tts?.playSilentUtterance(400, TextToSpeech.QUEUE_ADD, "clear_highlight")
+
+            if (customSound != null) {
+                // Prioritize real-world human voice recording over synthetic TTS
+                pendingCustomSound = customSound
+                pendingSentenceAfterCustomSound = sentenceToSpeakAfter
+                tts?.playSilentUtterance(50, TextToSpeech.QUEUE_ADD, "play_custom_voice")
+            } else {
+                // Standard synthetic TTS pronunciation
+                tts?.speak(word, TextToSpeech.QUEUE_ADD, null, "final_word_pronunciation")
+
+                // 🟢 ENTER KEY ENHANCEMENT: Read all words together like a sentence!
+                if (!sentenceToSpeakAfter.isNullOrBlank()) {
+                    tts?.playSilentUtterance(450, TextToSpeech.QUEUE_ADD, "pause_before_sentence")
+                    tts?.speak(sentenceToSpeakAfter, TextToSpeech.QUEUE_ADD, null, "sentence_pronunciation")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "speakWholeWordFlow failed: ${e.message}")
+            activeSpeakingIndex = -1
         }
     }
 
@@ -665,6 +727,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             runOnUiThread {
                                 activeImageBitmap = pendingImageBitmap
                                 pendingImageBitmap = null
+                                activeImageWord = pendingImageWord
+                                pendingImageWord = ""
 
                                 activeKineticAction = pendingKineticAction
                                 pendingKineticAction = null
@@ -682,23 +746,38 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                                 activeSpeakingIndex = -1
                                 val soundToPlay = pendingCustomSound
                                 val sentenceAfter = pendingSentenceAfterCustomSound
+                                val fallbackWord = lastSpokenWord
                                 pendingCustomSound = null
                                 pendingSentenceAfterCustomSound = null
 
                                 if (soundToPlay != null) {
-                                    SoundManager.play(applicationContext, soundToPlay) {
-                                        // On sound completion, read full sentence if requested
-                                        if (!sentenceAfter.isNullOrBlank() && isTtsReady && tts != null) {
-                                            runOnUiThread {
-                                                try {
-                                                    tts?.playSilentUtterance(350, TextToSpeech.QUEUE_FLUSH, "pause_before_sentence")
-                                                    tts?.speak(sentenceAfter, TextToSpeech.QUEUE_ADD, null, "sentence_pronunciation")
-                                                } catch (e: Exception) {
-                                                    Log.e("MainActivity", "Error speaking sentence after custom voice: ${e.message}")
+                                    SoundManager.play(
+                                        context = applicationContext,
+                                        sound = soundToPlay,
+                                        onCompletion = {
+                                            // On sound completion, read full sentence if requested
+                                            if (!sentenceAfter.isNullOrBlank() && isTtsReady && tts != null) {
+                                                runOnUiThread {
+                                                    try {
+                                                        tts?.playSilentUtterance(350, TextToSpeech.QUEUE_FLUSH, "pause_before_sentence")
+                                                        tts?.speak(sentenceAfter, TextToSpeech.QUEUE_ADD, null, "sentence_pronunciation")
+                                                    } catch (e: Exception) {
+                                                        Log.e("MainActivity", "Error speaking sentence after custom voice: ${e.message}")
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        onError = {
+                                            // Fallback to synthetic TTS if recording was unreadable or corrupt!
+                                            if (fallbackWord.isNotEmpty() && isTtsReady && tts != null) {
+                                                runOnUiThread {
+                                                    try {
+                                                        tts?.speak(fallbackWord, TextToSpeech.QUEUE_FLUSH, null, "final_word_pronunciation")
+                                                    } catch (e: Exception) {}
                                                 }
                                             }
                                         }
-                                    }
+                                    )
                                 }
                             }
                         }
@@ -713,16 +792,30 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             runOnUiThread {
                                 val soundToPlay = pendingCustomSound
                                 val sentenceAfter = pendingSentenceAfterCustomSound
+                                val fallbackWord = lastSpokenWord
                                 pendingCustomSound = null
                                 pendingSentenceAfterCustomSound = null
                                 if (soundToPlay != null) {
-                                    SoundManager.play(applicationContext, soundToPlay) {
-                                        if (!sentenceAfter.isNullOrBlank() && isTtsReady && tts != null) {
-                                            runOnUiThread {
-                                                tts?.speak(sentenceAfter, TextToSpeech.QUEUE_FLUSH, null, "sentence_pronunciation")
+                                    SoundManager.play(
+                                        context = applicationContext,
+                                        sound = soundToPlay,
+                                        onCompletion = {
+                                            if (!sentenceAfter.isNullOrBlank() && isTtsReady && tts != null) {
+                                                runOnUiThread {
+                                                    tts?.speak(sentenceAfter, TextToSpeech.QUEUE_FLUSH, null, "sentence_pronunciation")
+                                                }
+                                            }
+                                        },
+                                        onError = {
+                                            if (fallbackWord.isNotEmpty() && isTtsReady && tts != null) {
+                                                runOnUiThread {
+                                                    try {
+                                                        tts?.speak(fallbackWord, TextToSpeech.QUEUE_FLUSH, null, "final_word_pronunciation")
+                                                    } catch (e: Exception) {}
+                                                }
                                             }
                                         }
-                                    }
+                                    )
                                 }
                             }
                         }
@@ -736,16 +829,30 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             runOnUiThread {
                                 val soundToPlay = pendingCustomSound
                                 val sentenceAfter = pendingSentenceAfterCustomSound
+                                val fallbackWord = lastSpokenWord
                                 pendingCustomSound = null
                                 pendingSentenceAfterCustomSound = null
                                 if (soundToPlay != null) {
-                                    SoundManager.play(applicationContext, soundToPlay) {
-                                        if (!sentenceAfter.isNullOrBlank() && isTtsReady && tts != null) {
-                                            runOnUiThread {
-                                                tts?.speak(sentenceAfter, TextToSpeech.QUEUE_FLUSH, null, "sentence_pronunciation")
+                                    SoundManager.play(
+                                        context = applicationContext,
+                                        sound = soundToPlay,
+                                        onCompletion = {
+                                            if (!sentenceAfter.isNullOrBlank() && isTtsReady && tts != null) {
+                                                runOnUiThread {
+                                                    tts?.speak(sentenceAfter, TextToSpeech.QUEUE_FLUSH, null, "sentence_pronunciation")
+                                                }
+                                            }
+                                        },
+                                        onError = {
+                                            if (fallbackWord.isNotEmpty() && isTtsReady && tts != null) {
+                                                runOnUiThread {
+                                                    try {
+                                                        tts?.speak(fallbackWord, TextToSpeech.QUEUE_FLUSH, null, "final_word_pronunciation")
+                                                    } catch (e: Exception) {}
+                                                }
                                             }
                                         }
-                                    }
+                                    )
                                 }
                             }
                         }
