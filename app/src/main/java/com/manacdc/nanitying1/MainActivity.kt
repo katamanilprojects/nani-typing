@@ -36,8 +36,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 enum class AppScreen {
@@ -96,9 +98,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         // Request storage/media permissions at runtime on TV if needed
         checkAndRequestStoragePermissions()
 
-        // Index real-world trigger images & custom voice recordings on startup
-        photoCount = ImageManager.reloadRegistry(applicationContext)
-        soundCount = SoundManager.reloadRegistry(applicationContext)
+        // Index real-world trigger images & custom voice recordings on startup asynchronously
+        reloadMediaAsync()
 
         setContent {
             when (currentScreen) {
@@ -131,8 +132,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             handleSettingsRowAction(SettingsRow.LOCALE, direction = 1)
                         },
                         onReloadPhotos = {
-                            photoCount = ImageManager.reloadRegistry(applicationContext)
-                            soundCount = SoundManager.reloadRegistry(applicationContext)
+                            reloadMediaAsync()
                         },
                         onRequestAllFilesAccess = {
                             ImageManager.requestAllFilesAccess(this)
@@ -341,6 +341,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
 
                 AppScreen.TYPING_LEVEL_1 -> {
+                    // Consume TV remote DPAD arrows on canvas so TV doesn't emit error beeps or lose canvas focus
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN || keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                        return true
+                    }
+
                     if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
                         activeSpeakingIndex = -1
                         checkAndSpeakOnEnter()
@@ -422,9 +427,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 AppSettings.applyToTts(applicationContext, tts)
             }
             SettingsRow.RELOAD_STORAGE -> {
-                hasAllFilesAccess = ImageManager.hasAllFilesAccess()
-                photoCount = ImageManager.reloadRegistry(applicationContext)
-                soundCount = SoundManager.reloadRegistry(applicationContext)
+                reloadMediaAsync()
             }
             SettingsRow.USB_PERMISSION -> {
                 ImageManager.requestAllFilesAccess(this)
@@ -437,10 +440,32 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     override fun onResume() {
         super.onResume()
-        // Re-index images & sounds on resume so hot-plugged USB drives or newly copied files appear immediately
+        // Re-index images & sounds on resume asynchronously so hot-plugged USB drives appear immediately
+        reloadMediaAsync()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Cleanly stop any ongoing audio if home button is pressed or user switches away
+        try {
+            tts?.stop()
+            SoundManager.stop()
+            activeSpeakingIndex = -1
+        } catch (e: Exception) {
+            Log.w("MainActivity", "Error stopping audio onPause: ${e.message}")
+        }
+    }
+
+    private fun reloadMediaAsync() {
         hasAllFilesAccess = ImageManager.hasAllFilesAccess()
-        photoCount = ImageManager.reloadRegistry(applicationContext)
-        soundCount = SoundManager.reloadRegistry(applicationContext)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val pCount = ImageManager.reloadRegistry(applicationContext)
+            val sCount = SoundManager.reloadRegistry(applicationContext)
+            withContext(Dispatchers.Main) {
+                photoCount = pCount
+                soundCount = sCount
+            }
+        }
     }
 
     private fun checkAndRequestStoragePermissions() {
@@ -449,6 +474,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
                 permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_AUDIO)
             }
         } else {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
@@ -464,9 +492,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     @Deprecated("Deprecated in Java")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        hasAllFilesAccess = ImageManager.hasAllFilesAccess()
-        photoCount = ImageManager.reloadRegistry(applicationContext)
-        soundCount = SoundManager.reloadRegistry(applicationContext)
+        reloadMediaAsync()
     }
 
     private fun checkAndSpeakOnSpace() {

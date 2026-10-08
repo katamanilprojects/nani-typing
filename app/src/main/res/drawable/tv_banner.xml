@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <!-- Cream background -->
+    <path
+        android:fillColor="#FFFDD0"
+        android:pathData="M0,0h320v180h-320z" />
+    <!-- Navy central card surface -->
+    <path
+        android:fillColor="#0B1B3D"
+        android:pathData="M24,20h272a12,12 0 0 1 12,12v116a12,12 0 0 1 -12,12h-272a12,12 0 0 1 -12,-12v-116a12,12 0 0 1 12,-12z" />
+    <!-- Orange accent line -->
+    <path
+        android:fillColor="#FF4500"
+        android:pathData="M40,36h240v6h-240z" />
+    <!-- Keyboard key glyphs -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,65h36v32h-36z M108,65h36v32h-36z M156,65h36v32h-36z M204,65h36v32h-36z" />
+    <!-- Spacebar key glyph -->
+    <path
+        android:fillColor="#FF4500"
+        android:pathData="M84,110h152v20h-152z" />
+</vector>
