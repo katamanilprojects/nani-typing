@@ -24,11 +24,11 @@
    * `NaniTyping/sounds/kodi.mp3` or `NaniTyping/voices/nanna.m4a`
    * `NaniTyping/Animals/hen.jpg`
 5. **Plug the USB drive into your Android TV or tablet.**
-6. **One-Time TV Permission Grant (Android 11+ / Google TV):**
+6. **One-Time Storage Permission (Android TV / Google TV):**
    * Open Nani Typing.
    * Go to the **Settings** card.
-   * Select **USB Drive Access** and press **Enter**.
-   * Toggle **Allow** on the Android TV system screen, then press Back.
+   * Select **USB Drive Access** (or **Storage Access**) and press **Enter**.
+   * Grant media permission on the system screen, then press Back.
    * You will see the counter update to **"X photos • Y voices indexed"**!
 
 ---
@@ -46,22 +46,22 @@ Because the trigger is directly the filename, you can teach any language or dial
 | **Telugu** | `kodi.png` | **KODI** (Hen) |
 | **English** | `hen.png` | **HEN** |
 
-*Matching is completely case-insensitive (`DOG`, `dog`, `Dog` all match).*
+*Matching is completely case-insensitive (`DOG`, `dog`, `Dog` all match).* When a matching photo is displayed, the typed word is clearly printed underneath the picture to reinforce word recognition.
 
 ---
 
-## 🎙️ Zero-Latency Custom Voice Recordings (Parent Voice Priority)
+## 🎙️ Familiar Voice Recordings (Parent Voice Priority)
 
 Parents and teachers often ask: *"Will there be any delay or latency when playing our custom voice recordings?"*
 
-**Answer: No! It is practically zero latency (< 10ms).**
-* Pre-recorded compressed audio files (`.m4a`, `.mp3`, `.wav`, `.ogg`, `.flac`) play **faster than synthetic Text-to-Speech**.
+**Answer: No delay! Local audio plays immediately from storage without internet buffering.**
+* Pre-recorded compressed audio files (`.m4a`, `.mp3`, `.wav`, `.ogg`, `.flac`) play directly from local storage with no cloud dependency.
 * The app routes custom audio through Android's `USAGE_ASSISTANCE_ACCESSIBILITY` stream, keeping TV HDMI audio chips awake.
 * When your child finishes typing a word (e.g. **AMMA**):
-  1. The phonics engine spells each letter (`A - M - M - A`) with visual orange magnification.
-  2. The parent's recorded voice immediately plays: *"Amma!"* while the family photo flashes on screen.
+  1. The engine spells each letter (`A - M - M - A`) with visual orange magnification.
+  2. The parent's recorded voice immediately plays: *"Amma!"* while the family photo flashes on screen with the printed word beneath it.
   3. If **Enter** was pressed, after the voice finishes, the engine speaks the entire typed sentence together!
-* **Silent Fallback:** If you haven't recorded a word yet, the system smoothly falls back to synthetic TTS without any stutter or delay.
+* **Resilient Fallback:** If you haven't recorded a word yet, or if a recording is unreadable, the system automatically falls back to synthetic speech.
 * **Child Typing Agency First:** If your child hits any keyboard key while your voice is playing, it mutes immediately so their typing rhythm is never interrupted.
 
 ---
