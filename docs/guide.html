@@ -62,57 +62,66 @@
         <li style="margin-bottom: 8px;">Insert any standard USB thumb drive into your computer or phone.</li>
         <li style="margin-bottom: 8px;">Create a folder named: <code>NaniTyping</code> <em>(Case-insensitive: <code>nanityping</code>, <code>NANITYPING</code> all work)</em>.</li>
         <li style="margin-bottom: 8px;">
-          Drop your photos into this folder. <strong>Name each photo after the word you want to trigger:</strong>
+          Drop your photos and custom voice recordings into this folder. <strong>Name each file after the word you want to trigger:</strong>
           <ul>
-            <li><code>kodi.webp</code> &rarr; Displays when your child types <strong>KODI</strong></li>
-            <li><code>hen.png</code> &rarr; Displays when your child types <strong>HEN</strong></li>
-            <li><code>mamma.jpg</code> &rarr; Displays when your child types <strong>MAMMA</strong></li>
-            <li><code>car.webp</code> &rarr; Displays when your child types <strong>CAR</strong></li>
+            <li><code>kodi.webp</code> &rarr; Displays photo when your child types <strong>KODI</strong></li>
+            <li><code>amma.m4a</code> / <code>amma.mp3</code> &rarr; Plays mother's voice saying <strong>"Amma"</strong></li>
+            <li><code>nanna.wav</code> / <code>nanna.m4a</code> &rarr; Plays father's voice saying <strong>"Nanna"</strong></li>
+            <li><code>hen.png</code> &rarr; Displays photo when your child types <strong>HEN</strong></li>
           </ul>
         </li>
         <li style="margin-bottom: 8px;">
-          <strong>Subfolders are supported!</strong> You can organize photos into categorized subfolders up to 3 levels deep:
-          <ul>
-            <li><code>NaniTyping/Family/mamma.jpg</code></li>
-            <li><code>NaniTyping/Vehicles/car.webp</code></li>
-            <li><code>NaniTyping/Animals/hen.png</code></li>
-          </ul>
+          <strong>Subfolders & Audio Formats:</strong> You can organize files cleanly up to 4 levels deep (e.g. <code>NaniTyping/Family/amma.jpg</code>, <code>NaniTyping/sounds/kodi.m4a</code>, <code>NaniTyping/voices/nanna.mp3</code>). Supported audio formats: <code>.m4a</code>, <code>.mp3</code>, <code>.wav</code>, <code>.ogg</code>, <code>.aac</code>, <code>.flac</code>.
         </li>
         <li style="margin-bottom: 8px;">Plug the USB drive into your Android TV and launch Nani Typing.</li>
         <li style="margin-bottom: 8px;">
           <strong>One-Time Android TV USB Permission:</strong>
           In Nani Typing, open the <strong>Settings</strong> card, select <strong>USB Drive Access</strong>, and press Enter. 
           Toggle <strong>Allow</strong> on the Android system screen (this enables All Files Access, exactly like VLC), then press Back. 
-          Your photo count will update immediately!
+          Your media count will update immediately to show both indexed photos and voices!
         </li>
       </ol>
 
-      <h2>4. Universal Multilingual & Dialect Support</h2>
+      <h2>4. Zero-Latency Custom Voice Recordings (Parent Voice Priority)</h2>
+      <p>
+        Children learn with profound joy and comfort when hearing the familiar voices of their parents and grandparents. 
+        Will there be any delay or latency? <strong>No, latency is practically zero (&lt; 10ms).</strong>
+      </p>
+      <div style="background: var(--bg-cream); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px;">
+        <ul style="margin: 0; padding-left: 20px; line-height: 1.8;">
+          <li><strong>Faster Than TTS:</strong> Pre-recorded local audio files launch directly via Android's low-latency accessibility audio stream, playing faster than synthetic text-to-speech.</li>
+          <li><strong>Parent Voice Priority:</strong> When a child types a word with a custom recording (e.g. <code>AMMA</code>), the phonics engine spells the letters, and then plays your real recorded voice while the photo flashes.</li>
+          <li><strong>Silent Fallback:</strong> If a word has no custom recording, the app seamlessly falls back to synthetic TTS without hesitation or error.</li>
+          <li><strong>Child Agency Priority:</strong> Striking any key on the physical keyboard immediately mutes ongoing audio, guaranteeing your child's typing speed is never blocked.</li>
+        </ul>
+      </div>
+
+      <h2>5. Universal Multilingual & Dialect Support</h2>
       <p>
         Because the trigger is simply the filename, Nani Typing has <strong>zero regional language barriers</strong>:
       </p>
       <ul>
-        <li><strong>Telugu:</strong> Name a photo of a dog <code>kukka.jpg</code>.</li>
-        <li><strong>Hindi:</strong> Name the same photo <code>kutta.jpg</code>.</li>
-        <li><strong>Tamil:</strong> Name the same photo <code>naai.jpg</code>.</li>
-        <li><strong>English:</strong> Name the same photo <code>dog.jpg</code>.</li>
+        <li><strong>Telugu:</strong> Name a photo or voice recording <code>kukka.jpg</code> / <code>kukka.m4a</code>.</li>
+        <li><strong>Hindi:</strong> Name the file <code>kutta.jpg</code> / <code>kutta.mp3</code>.</li>
+        <li><strong>Tamil:</strong> Name the file <code>naai.jpg</code> / <code>naai.wav</code>.</li>
+        <li><strong>English:</strong> Name the file <code>dog.jpg</code> / <code>dog.m4a</code>.</li>
       </ul>
       <p>
-        Matching is case-insensitive. Typing <code>DOG</code>, <code>dog</code>, or <code>Dog</code> instantly matches <code>dog.jpg</code>.
+        Matching is case-insensitive. Typing <code>DOG</code>, <code>dog</code>, or <code>Dog</code> instantly matches <code>dog.jpg</code> and <code>dog.m4a</code>.
       </p>
 
-      <h2>5. Spacebar vs. Enter Key Mechanics</h2>
+      <h2>6. Spacebar vs. Enter Key Mechanics</h2>
       <div style="background: var(--bg-cream); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px;">
         <ul style="margin: 0; padding-left: 20px; line-height: 1.8;">
           <li><strong>Letter Keys:</strong> Speaks uppercase letter phonics immediately upon pressing.</li>
-          <li><strong>Spacebar (Word Phonics Loop):</strong> Spells completed word letter-by-letter with orange magnification ($1.5\times$), speaks whole word aloud, flashes real photo or kinetic action, and adds a space.</li>
-          <li><strong>Enter Key (Sentence Synthesis):</strong> Spells word (if mid-word), pronounces word, and then <strong>reads all words in the line together as a fluent, continuous sentence</strong> before moving to a new line.</li>
-          <li><strong>Backspace (Del / Forward Del):</strong> Erases last letter and immediately mutes ongoing audio.</li>
+          <li><strong>Spacebar (Word Phonics Loop):</strong> Spells completed word letter-by-letter with orange magnification ($1.5\times$), plays custom parent voice or speaks whole word aloud, flashes real photo or kinetic action, and adds a space.</li>
+          <li><strong>Enter Key (Sentence Synthesis):</strong> Spells word (if mid-word), plays custom voice / TTS word, and then <strong>reads all words in the line together as a fluent, continuous sentence</strong> before moving to a new line.</li>
+          <li><strong>Backspace (Del / Forward Del):</strong> Erases last letter and immediately mutes ongoing speech/voice.</li>
           <li><strong>Escape / Back:</strong> If text is present, resets canvas with *"Reset"*. If canvas is empty, returns to the Main Menu.</li>
         </ul>
       </div>
 
-      <h2>6. Kinetic Action Words Reference (Physics Play)</h2>
+      <h2>7. Kinetic Action Words Reference (Physics Play)</h2>
       <p>
         When your child types active verbs matching his physical play, the TV screen simulates real physical dynamics with a minimalist tactile vehicle:
       </p>

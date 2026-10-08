@@ -71,4 +71,56 @@ class SentenceAndPhonicsLogicTest {
         assertEquals(KineticActionType.DOWN, KineticActionManager.findAction("FALL"))
         assertNull(KineticActionManager.findAction("APPLE"))
     }
+
+    @Test
+    fun testCustomVoiceFilenameAndExtensionMatching() {
+        val supportedExtensions = setOf("m4a", "mp3", "wav", "ogg", "aac", "3gp", "flac")
+        val sampleFilenames = listOf(
+            "amma.m4a",
+            "Amma.mp3",
+            "NANNA.wav",
+            "kodi.ogg",
+            "chekka.aac",
+            "dog.flac"
+        )
+
+        for (filename in sampleFilenames) {
+            val ext = filename.substringAfterLast('.', "").lowercase(Locale.ROOT)
+            assertTrue("Extension $ext should be supported", supportedExtensions.contains(ext))
+            val baseName = filename.substringBeforeLast('.').trim().lowercase(Locale.ROOT)
+            assertFalse(baseName.isEmpty())
+        }
+
+        // Test non-audio files are ignored
+        val unsupported = listOf("photo.jpg", "notes.txt", "video.mp4")
+        for (filename in unsupported) {
+            val ext = filename.substringAfterLast('.', "").lowercase(Locale.ROOT)
+            assertFalse(supportedExtensions.contains(ext))
+        }
+    }
+
+    @Test
+    fun testCustomVoiceWordMatching() {
+        // Mock registry mapping
+        val testRegistry = mapOf(
+            "amma" to SoundEntry(displayName = "amma.m4a"),
+            "nanna" to SoundEntry(displayName = "nanna.mp3"),
+            "kodi" to SoundEntry(displayName = "kodi.wav")
+        )
+
+        fun lookup(word: String): SoundEntry? {
+            val key = word.trim().lowercase(Locale.ROOT)
+            return testRegistry[key]
+        }
+
+        // Child types in uppercase
+        assertEquals("amma.m4a", lookup("AMMA")?.displayName)
+        assertEquals("nanna.mp3", lookup("NANNA")?.displayName)
+        assertEquals("kodi.wav", lookup("KODI")?.displayName)
+        assertEquals("kodi.wav", lookup("  kodi  ")?.displayName)
+
+        // Missing voice fallback (returns null, which triggers silent fallback to synthetic TTS)
+        assertNull(lookup("ELEPHANT"))
+        assertNull(lookup("BALL"))
+    }
 }

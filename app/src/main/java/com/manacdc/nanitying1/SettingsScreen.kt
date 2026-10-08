@@ -33,6 +33,7 @@ enum class SettingsRow {
 fun SettingsScreen(
     selectedRow: SettingsRow,
     photoCount: Int,
+    soundCount: Int,
     speed: Float,
     pitch: Float,
     localeCode: String,
@@ -106,10 +107,16 @@ fun SettingsScreen(
                     onClick = onCycleLocale
                 )
 
-                // 4. Photos / USB Storage Row
+                // 4. Photos & Custom Voices / USB Storage Row
+                val mediaLabel = when {
+                    photoCount > 0 && soundCount > 0 -> "$photoCount photos • $soundCount voices • Reload"
+                    photoCount > 0 -> "$photoCount photos indexed • Reload"
+                    soundCount > 0 -> "$soundCount voices indexed • Reload"
+                    else -> "0 media indexed • Reload"
+                }
                 SettingItemCard(
-                    title = "Real-World Photos",
-                    value = "$photoCount photos indexed • Reload",
+                    title = "Photos & Custom Voices",
+                    value = mediaLabel,
                     isSelected = selectedRow == SettingsRow.RELOAD_STORAGE,
                     onClick = onReloadPhotos
                 )

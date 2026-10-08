@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var selectedMenuCard by mutableStateOf(MenuCard.LEVEL_1)
     private var selectedSettingsRow by mutableStateOf(SettingsRow.SPEED)
     private var photoCount by mutableIntStateOf(0)
+    private var soundCount by mutableIntStateOf(0)
     private var hasAllFilesAccess by mutableStateOf(false)
     private var speechSpeed by mutableFloatStateOf(AppSettings.DEFAULT_SPEED)
     private var speechPitch by mutableFloatStateOf(AppSettings.DEFAULT_PITCH)
@@ -69,6 +70,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     // Level 2: Real-World Image Association state
     private var activeImageBitmap by mutableStateOf<ImageBitmap?>(null)
     private var pendingImageBitmap: ImageBitmap? = null
+
+    // Level 2+: Real-World Custom Voice Recording state
+    private var pendingCustomSound: SoundEntry? = null
+    private var pendingSentenceAfterCustomSound: String? = null
 
     // Level 3: Action Logic & Physics Dynamics state
     private var activeKineticAction by mutableStateOf<KineticActionType?>(null)
@@ -91,8 +96,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         // Request storage/media permissions at runtime on TV if needed
         checkAndRequestStoragePermissions()
 
-        // Index real-world trigger images on startup (Zero-DB Filename-as-Trigger)
+        // Index real-world trigger images & custom voice recordings on startup
         photoCount = ImageManager.reloadRegistry(applicationContext)
+        soundCount = SoundManager.reloadRegistry(applicationContext)
 
         setContent {
             when (currentScreen) {
@@ -110,6 +116,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     SettingsScreen(
                         selectedRow = selectedSettingsRow,
                         photoCount = photoCount,
+                        soundCount = soundCount,
                         speed = speechSpeed,
                         pitch = speechPitch,
                         localeCode = speechLocaleCode,
@@ -125,6 +132,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         },
                         onReloadPhotos = {
                             photoCount = ImageManager.reloadRegistry(applicationContext)
+                            soundCount = SoundManager.reloadRegistry(applicationContext)
                         },
                         onRequestAllFilesAccess = {
                             ImageManager.requestAllFilesAccess(this)
@@ -257,6 +265,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        // 🟢 PRE-SCHOOL DEFENSIVE: Stop any ongoing custom audio immediately so typing is never blocked
+        SoundManager.stop()
+        pendingCustomSound = null
+        pendingSentenceAfterCustomSound = null
+
         // Clear visible image & kinetic actions immediately on any user action so typing is never blocked
         if (activeImageBitmap != null) {
             activeImageBitmap = null
@@ -411,6 +424,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             SettingsRow.RELOAD_STORAGE -> {
                 hasAllFilesAccess = ImageManager.hasAllFilesAccess()
                 photoCount = ImageManager.reloadRegistry(applicationContext)
+                soundCount = SoundManager.reloadRegistry(applicationContext)
             }
             SettingsRow.USB_PERMISSION -> {
                 ImageManager.requestAllFilesAccess(this)
@@ -423,9 +437,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     override fun onResume() {
         super.onResume()
-        // Re-index images on resume so hot-plugged USB drives or newly copied photos appear immediately
+        // Re-index images & sounds on resume so hot-plugged USB drives or newly copied files appear immediately
         hasAllFilesAccess = ImageManager.hasAllFilesAccess()
         photoCount = ImageManager.reloadRegistry(applicationContext)
+        soundCount = SoundManager.reloadRegistry(applicationContext)
     }
 
     private fun checkAndRequestStoragePermissions() {
@@ -446,10 +461,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         hasAllFilesAccess = ImageManager.hasAllFilesAccess()
         photoCount = ImageManager.reloadRegistry(applicationContext)
+        soundCount = SoundManager.reloadRegistry(applicationContext)
     }
 
     private fun checkAndSpeakOnSpace() {
@@ -473,9 +490,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     }
 
                     pendingKineticAction = KineticActionManager.findAction(lastWord)
+                    val matchingSound = SoundManager.findSound(lastWord)
 
                     val wordStartIndex = typedText.length - lastWord.length
-                    speakWholeWordFlow(lastWord, wordStartIndex, sentenceToSpeakAfter = null)
+                    speakWholeWordFlow(lastWord, wordStartIndex, customSound = matchingSound, sentenceToSpeakAfter = null)
                 }
             }
         }
@@ -505,10 +523,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     }
 
                     pendingKineticAction = KineticActionManager.findAction(lastWord)
+                    val matchingSound = SoundManager.findSound(lastWord)
 
                     val wordStartIndex = typedText.length - lastWord.length
-                    // Spell word -> Speak word -> Pause -> Read all words in sentence!
-                    speakWholeWordFlow(lastWord, wordStartIndex, sentenceToSpeakAfter = currentLine)
+                    // Spell word -> Speak word / Custom Voice -> Pause -> Read all words in sentence!
+                    speakWholeWordFlow(lastWord, wordStartIndex, customSound = matchingSound, sentenceToSpeakAfter = currentLine)
                     return
                 }
             }
@@ -524,7 +543,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun speakWholeWordFlow(word: String, startIndex: Int, sentenceToSpeakAfter: String? = null) {
+    private fun speakWholeWordFlow(
+        word: String,
+        startIndex: Int,
+        customSound: SoundEntry? = null,
+        sentenceToSpeakAfter: String? = null
+    ) {
         if (isTtsReady && tts != null) {
             try {
                 var queueMode = TextToSpeech.QUEUE_FLUSH
@@ -537,12 +561,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
 
                 tts?.playSilentUtterance(400, TextToSpeech.QUEUE_ADD, "clear_highlight")
-                tts?.speak(word, TextToSpeech.QUEUE_ADD, null, "final_word_pronunciation")
 
-                // 🟢 ENTER KEY ENHANCEMENT: Read all words together like a sentence!
-                if (!sentenceToSpeakAfter.isNullOrBlank()) {
-                    tts?.playSilentUtterance(450, TextToSpeech.QUEUE_ADD, "pause_before_sentence")
-                    tts?.speak(sentenceToSpeakAfter, TextToSpeech.QUEUE_ADD, null, "sentence_pronunciation")
+                if (customSound != null) {
+                    // Prioritize real-world human voice recording over synthetic TTS
+                    pendingCustomSound = customSound
+                    pendingSentenceAfterCustomSound = sentenceToSpeakAfter
+                    tts?.playSilentUtterance(50, TextToSpeech.QUEUE_ADD, "play_custom_voice")
+                } else {
+                    // Standard synthetic TTS pronunciation
+                    tts?.speak(word, TextToSpeech.QUEUE_ADD, null, "final_word_pronunciation")
+
+                    // 🟢 ENTER KEY ENHANCEMENT: Read all words together like a sentence!
+                    if (!sentenceToSpeakAfter.isNullOrBlank()) {
+                        tts?.playSilentUtterance(450, TextToSpeech.QUEUE_ADD, "pause_before_sentence")
+                        tts?.speak(sentenceToSpeakAfter, TextToSpeech.QUEUE_ADD, null, "sentence_pronunciation")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("MainActivity", "speakWholeWordFlow failed: ${e.message}")
@@ -601,8 +634,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                                     activeSpeakingIndex = targetIndex
                                 }
                             }
-                        } else if (utteranceId == "final_word_pronunciation") {
-                            // 🟢 LEVEL 2 & 3: Synchronize photo appearance & kinetic physics with whole-word audio pronunciation
+                        } else if (utteranceId == "final_word_pronunciation" || utteranceId == "play_custom_voice") {
+                            // 🟢 LEVEL 2 & 3: Synchronize photo appearance & kinetic physics
                             runOnUiThread {
                                 activeImageBitmap = pendingImageBitmap
                                 pendingImageBitmap = null
@@ -618,6 +651,30 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             runOnUiThread {
                                 activeSpeakingIndex = -1
                             }
+                        } else if (utteranceId == "play_custom_voice") {
+                            runOnUiThread {
+                                activeSpeakingIndex = -1
+                                val soundToPlay = pendingCustomSound
+                                val sentenceAfter = pendingSentenceAfterCustomSound
+                                pendingCustomSound = null
+                                pendingSentenceAfterCustomSound = null
+
+                                if (soundToPlay != null) {
+                                    SoundManager.play(applicationContext, soundToPlay) {
+                                        // On sound completion, read full sentence if requested
+                                        if (!sentenceAfter.isNullOrBlank() && isTtsReady && tts != null) {
+                                            runOnUiThread {
+                                                try {
+                                                    tts?.playSilentUtterance(350, TextToSpeech.QUEUE_FLUSH, "pause_before_sentence")
+                                                    tts?.speak(sentenceAfter, TextToSpeech.QUEUE_ADD, null, "sentence_pronunciation")
+                                                } catch (e: Exception) {
+                                                    Log.e("MainActivity", "Error speaking sentence after custom voice: ${e.message}")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -626,11 +683,45 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         runOnUiThread {
                             activeSpeakingIndex = -1
                         }
+                        if (utteranceId == "play_custom_voice") {
+                            runOnUiThread {
+                                val soundToPlay = pendingCustomSound
+                                val sentenceAfter = pendingSentenceAfterCustomSound
+                                pendingCustomSound = null
+                                pendingSentenceAfterCustomSound = null
+                                if (soundToPlay != null) {
+                                    SoundManager.play(applicationContext, soundToPlay) {
+                                        if (!sentenceAfter.isNullOrBlank() && isTtsReady && tts != null) {
+                                            runOnUiThread {
+                                                tts?.speak(sentenceAfter, TextToSpeech.QUEUE_FLUSH, null, "sentence_pronunciation")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     override fun onError(utteranceId: String?, errorCode: Int) {
                         runOnUiThread {
                             activeSpeakingIndex = -1
+                        }
+                        if (utteranceId == "play_custom_voice") {
+                            runOnUiThread {
+                                val soundToPlay = pendingCustomSound
+                                val sentenceAfter = pendingSentenceAfterCustomSound
+                                pendingCustomSound = null
+                                pendingSentenceAfterCustomSound = null
+                                if (soundToPlay != null) {
+                                    SoundManager.play(applicationContext, soundToPlay) {
+                                        if (!sentenceAfter.isNullOrBlank() && isTtsReady && tts != null) {
+                                            runOnUiThread {
+                                                tts?.speak(sentenceAfter, TextToSpeech.QUEUE_FLUSH, null, "sentence_pronunciation")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 })
@@ -657,6 +748,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
         try {
+            SoundManager.release()
             tts?.stop()
             tts?.shutdown()
         } catch (e: Exception) {
