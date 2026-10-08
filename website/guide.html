@@ -35,22 +35,32 @@
         You do not need an expensive tablet or dedicated laptop for your child. All you need is:
       </p>
       <ul>
-        <li><strong>A Screen:</strong> Any Android TV, Google TV device (Chromecast, Xiaomi, Sony, TCL), or Android tablet.</li>
+        <li><strong>A Screen:</strong> Any Android TV, Google TV device (Chromecast, Xiaomi, Sony, OnePlus, TCL), or Android tablet.</li>
         <li><strong>A Physical Keyboard:</strong> Any standard USB wired keyboard (or Bluetooth keyboard). Plug it directly into the USB port of your TV or TV box.</li>
       </ul>
       <p>
         <em>Why wired?</em> A $10–$15 wired keyboard has zero battery anxiety, zero Bluetooth pairing headaches, and provides real physical key travel that gives young children tactile muscle feedback.
       </p>
 
-      <h2>2. Setting Up Real-World Photos (The Zero-DB Engine)</h2>
+      <h2>2. The Card Launcher & Navigation</h2>
+      <p>
+        When you open the app, it presents two clean, high-contrast tactile cards:
+      </p>
+      <ul>
+        <li><strong>Card 1: Level 1 (Free Typing)</strong> — Highlighted by default. Press Enter or Space to begin.</li>
+        <li><strong>Card 2: Settings (Voice & Preferences)</strong> — Adjust speech pace, voice pitch, regional accent, and USB permissions.</li>
+        <li><strong>Direct Typing Bypass for Young Children:</strong> If your child sits down and strikes any letter key directly on the menu, the app instantly enters Level 1 and types that letter. There is zero menu trapping!</li>
+      </ul>
+
+      <h2>3. Setting Up Real-World Photos (The Zero-DB Engine)</h2>
       <p>
         Nani Typing does not use cartoon clip art. Research shows young children anchor language far more effectively when connected to their actual environment: real family members, their own pets, familiar household items, and street scenes.
       </p>
 
-      <h3>Option A: Using a USB Thumb Drive (Easiest for TV)</h3>
+      <h3>Step-by-Step USB Setup:</h3>
       <ol style="padding-left: 24px; margin-bottom: 24px;">
         <li style="margin-bottom: 8px;">Insert any standard USB thumb drive into your computer or phone.</li>
-        <li style="margin-bottom: 8px;">Create a folder named exactly: <code>NaniTyping</code></li>
+        <li style="margin-bottom: 8px;">Create a folder named: <code>NaniTyping</code> <em>(Case-insensitive: <code>nanityping</code>, <code>NANITYPING</code> all work)</em>.</li>
         <li style="margin-bottom: 8px;">
           Drop your photos into this folder. <strong>Name each photo after the word you want to trigger:</strong>
           <ul>
@@ -60,19 +70,24 @@
             <li><code>car.webp</code> &rarr; Displays when your child types <strong>CAR</strong></li>
           </ul>
         </li>
-        <li style="margin-bottom: 8px;">Plug the USB drive into your Android TV and launch Nani Typing. The app automatically scans and indexes the photos!</li>
+        <li style="margin-bottom: 8px;">
+          <strong>Subfolders are supported!</strong> You can organize photos into categorized subfolders up to 3 levels deep:
+          <ul>
+            <li><code>NaniTyping/Family/mamma.jpg</code></li>
+            <li><code>NaniTyping/Vehicles/car.webp</code></li>
+            <li><code>NaniTyping/Animals/hen.png</code></li>
+          </ul>
+        </li>
+        <li style="margin-bottom: 8px;">Plug the USB drive into your Android TV and launch Nani Typing.</li>
+        <li style="margin-bottom: 8px;">
+          <strong>One-Time Android TV USB Permission:</strong>
+          In Nani Typing, open the <strong>Settings</strong> card, select <strong>USB Drive Access</strong>, and press Enter. 
+          Toggle <strong>Allow</strong> on the Android system screen (this enables All Files Access, exactly like VLC), then press Back. 
+          Your photo count will update immediately!
+        </li>
       </ol>
 
-      <h3>Option B: Internal Storage / File Commander</h3>
-      <p>
-        If you prefer not to use a USB drive, you can copy photos directly to either of these folders using any TV file manager or ADB:
-      </p>
-      <ul>
-        <li><code>/sdcard/NaniTyping/</code></li>
-        <li><code>/sdcard/Android/data/com.manacdc.nanityping1/files/NaniTyping/</code></li>
-      </ul>
-
-      <h2>3. Universal Multilingual & Dialect Support</h2>
+      <h2>4. Universal Multilingual & Dialect Support</h2>
       <p>
         Because the trigger is simply the filename, Nani Typing has <strong>zero regional language barriers</strong>:
       </p>
@@ -86,13 +101,24 @@
         Matching is case-insensitive. Typing <code>DOG</code>, <code>dog</code>, or <code>Dog</code> instantly matches <code>dog.jpg</code>.
       </p>
 
-      <h2>4. Kinetic Action Words Reference (Physics Play)</h2>
+      <h2>5. Spacebar vs. Enter Key Mechanics</h2>
+      <div style="background: var(--bg-cream); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px;">
+        <ul style="margin: 0; padding-left: 20px; line-height: 1.8;">
+          <li><strong>Letter Keys:</strong> Speaks uppercase letter phonics immediately upon pressing.</li>
+          <li><strong>Spacebar (Word Phonics Loop):</strong> Spells completed word letter-by-letter with orange magnification ($1.5\times$), speaks whole word aloud, flashes real photo or kinetic action, and adds a space.</li>
+          <li><strong>Enter Key (Sentence Synthesis):</strong> Spells word (if mid-word), pronounces word, and then <strong>reads all words in the line together as a fluent, continuous sentence</strong> before moving to a new line.</li>
+          <li><strong>Backspace (Del / Forward Del):</strong> Erases last letter and immediately mutes ongoing audio.</li>
+          <li><strong>Escape / Back:</strong> If text is present, resets canvas with *"Reset"*. If canvas is empty, returns to the Main Menu.</li>
+        </ul>
+      </div>
+
+      <h2>6. Kinetic Action Words Reference (Physics Play)</h2>
       <p>
         When your child types active verbs matching his physical play, the TV screen simulates real physical dynamics with a minimalist tactile vehicle:
       </p>
       <div style="background: var(--bg-cream); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px;">
-        <ul style="margin: 0; padding-left: 20px;">
-          <li><strong>FAST, SPEED, RUN:</strong> Accelerates rapidly across the screen ($450\text{ms}$) with realistic linear velocity.</li>
+        <ul style="margin: 0; padding-left: 20px; line-height: 1.8;">
+          <li><strong>FAST, SPEED, RUN, ZOOM:</strong> Accelerates rapidly across the screen ($450\text{ms}$) with realistic linear velocity.</li>
           <li><strong>SLOW, CRAWL:</strong> Creeps across the canvas in a measured $3.5\text{s}$ crawl.</li>
           <li><strong>STOP, HALT, WAIT:</strong> Screeches to an immediate halt with braking suspension tilt and recoil.</li>
           <li><strong>DOWN, DROP, FALL:</strong> Renders a structural ramp incline and accelerates downward under simulated gravity.</li>
@@ -102,16 +128,7 @@
         </ul>
       </div>
 
-      <h2>5. Keyboard Shortcuts & Controls</h2>
-      <ul>
-        <li><strong>Any Letter / Number:</strong> Immediately announces the letter name aloud.</li>
-        <li><strong>Space Bar:</strong> Spells the word letter-by-letter with orange magnification, then speaks the whole word and triggers photos/actions.</li>
-        <li><strong>Enter:</strong> Performs the spelling and pronunciation loop, then moves to a new line.</li>
-        <li><strong>Backspace (Del):</strong> Erases the last character and immediately mutes ongoing audio.</li>
-        <li><strong>Escape / Back:</strong> Clears the screen and resets the speech engine.</li>
-      </ul>
-
-      <h2>6. Tips for Parents: The Montessori Flow</h2>
+      <h2>7. Tips for Parents: The Montessori Flow</h2>
       <p>
         Do not force your child to sit for long sessions or complete structured flashcard drills. 
         Allow him or her to type freely for 2 to 3 minutes whenever curiosity strikes. 
