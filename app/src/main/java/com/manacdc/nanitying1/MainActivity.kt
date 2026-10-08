@@ -169,7 +169,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                                     typedText.forEachIndexed { index, char ->
                                         if (char == '\n') {
                                             // Forces an organic layout break to a new line without breaking string index synchronization
-                                            Spacer(modifier = Modifier.fillMaxWidth())
+                                            Spacer(modifier = Modifier.fillMaxWidth().height(16.dp))
                                         } else {
                                             val isCurrentSpeaking = index == activeSpeakingIndex
 
@@ -272,7 +272,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         selectedMenuCard = MenuCard.SETTINGS
                         return true
                     }
-                    if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_SPACE) {
+                    if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_SPACE) {
                         currentScreen = if (selectedMenuCard == MenuCard.LEVEL_1) AppScreen.TYPING_LEVEL_1 else AppScreen.SETTINGS
                         return true
                     }
@@ -302,7 +302,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         handleSettingsRowAction(selectedSettingsRow, direction = -1)
                         return true
                     }
-                    if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
                         handleSettingsRowAction(selectedSettingsRow, direction = 1)
                         return true
                     }
@@ -314,16 +314,23 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
 
                 AppScreen.TYPING_LEVEL_1 -> {
-                    if (keyCode == KeyEvent.KEYCODE_ENTER) {
+                    if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
                         activeSpeakingIndex = -1
                         checkAndSpeakOnEnter()
                         typedText += "\n"
                         return true
                     }
 
+                    if (keyCode == KeyEvent.KEYCODE_SPACE) {
+                        activeSpeakingIndex = -1
+                        checkAndSpeakOnSpace()
+                        typedText += " "
+                        return true
+                    }
+
                     if (keyCode == KeyEvent.KEYCODE_ESCAPE || keyCode == KeyEvent.KEYCODE_BACK) {
                         if (typedText.isNotEmpty()) {
-                            tts?.stop()
+                            try { tts?.stop() } catch (e: Exception) {}
                             typedText = ""
                             activeSpeakingIndex = -1
                             speakText("Reset", TextToSpeech.QUEUE_FLUSH)
@@ -335,6 +342,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         }
                     }
 
+                    if (keyCode == KeyEvent.KEYCODE_DEL || keyCode == KeyEvent.KEYCODE_FORWARD_DEL) {
+                        if (typedText.isNotEmpty()) {
+                            try { tts?.stop() } catch (e: Exception) {}
+                            activeSpeakingIndex = -1
+                            typedText = typedText.dropLast(1)
+                        }
+                        return true
+                    }
+
                     if (it.unicodeChar != 0 && (pressedChar.isLetterOrDigit() || pressedChar.isWhitespace())) {
                         activeSpeakingIndex = -1
                         if (pressedChar.isWhitespace()) {
@@ -344,15 +360,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         }
 
                         typedText += pressedChar
-                        return true
-                    }
-
-                    if (keyCode == KeyEvent.KEYCODE_DEL) {
-                        if (typedText.isNotEmpty()) {
-                            tts?.stop()
-                            activeSpeakingIndex = -1
-                            typedText = typedText.dropLast(1)
-                        }
                         return true
                     }
                 }
@@ -466,28 +473,37 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         // If word was already finished on space, read the full sentence directly!
         if (isTtsReady && tts != null) {
-            tts?.speak(currentLine, TextToSpeech.QUEUE_FLUSH, null, "sentence_pronunciation")
+            try {
+                tts?.speak(currentLine, TextToSpeech.QUEUE_FLUSH, null, "sentence_pronunciation")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "checkAndSpeakOnEnter failed: ${e.message}")
+            }
         }
     }
 
     private fun speakWholeWordFlow(word: String, startIndex: Int, sentenceToSpeakAfter: String? = null) {
         if (isTtsReady && tts != null) {
-            var queueMode = TextToSpeech.QUEUE_FLUSH
+            try {
+                var queueMode = TextToSpeech.QUEUE_FLUSH
 
-            word.forEachIndexed { i, ch ->
-                val utteranceId = "highlight_${startIndex + i}"
-                tts?.speak(ch.toString(), queueMode, null, utteranceId)
-                queueMode = TextToSpeech.QUEUE_ADD
-                tts?.playSilentUtterance(250, TextToSpeech.QUEUE_ADD, "silence_${startIndex + i}")
-            }
+                word.forEachIndexed { i, ch ->
+                    val utteranceId = "highlight_${startIndex + i}"
+                    tts?.speak(ch.toString(), queueMode, null, utteranceId)
+                    queueMode = TextToSpeech.QUEUE_ADD
+                    tts?.playSilentUtterance(250, TextToSpeech.QUEUE_ADD, "silence_${startIndex + i}")
+                }
 
-            tts?.playSilentUtterance(400, TextToSpeech.QUEUE_ADD, "clear_highlight")
-            tts?.speak(word, TextToSpeech.QUEUE_ADD, null, "final_word_pronunciation")
+                tts?.playSilentUtterance(400, TextToSpeech.QUEUE_ADD, "clear_highlight")
+                tts?.speak(word, TextToSpeech.QUEUE_ADD, null, "final_word_pronunciation")
 
-            // 🟢 ENTER KEY ENHANCEMENT: Read all words together like a sentence!
-            if (!sentenceToSpeakAfter.isNullOrBlank()) {
-                tts?.playSilentUtterance(450, TextToSpeech.QUEUE_ADD, "pause_before_sentence")
-                tts?.speak(sentenceToSpeakAfter, TextToSpeech.QUEUE_ADD, null, "sentence_pronunciation")
+                // 🟢 ENTER KEY ENHANCEMENT: Read all words together like a sentence!
+                if (!sentenceToSpeakAfter.isNullOrBlank()) {
+                    tts?.playSilentUtterance(450, TextToSpeech.QUEUE_ADD, "pause_before_sentence")
+                    tts?.speak(sentenceToSpeakAfter, TextToSpeech.QUEUE_ADD, null, "sentence_pronunciation")
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "speakWholeWordFlow failed: ${e.message}")
+                activeSpeakingIndex = -1
             }
         }
     }
@@ -525,7 +541,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
                 // 3. Play any keystroke buffered during the cold start
                 pendingSpeechText?.let { bufferedText ->
-                    tts?.speak(bufferedText, TextToSpeech.QUEUE_ADD, null, null)
+                    try {
+                        tts?.speak(bufferedText, TextToSpeech.QUEUE_ADD, null, null)
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Failed playing buffered keystroke: ${e.message}")
+                    }
                     pendingSpeechText = null
                 }
 
@@ -551,7 +571,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     }
 
                     override fun onDone(utteranceId: String?) {
-                        if (utteranceId == "clear_highlight") {
+                        if (utteranceId == "clear_highlight" || utteranceId == "final_word_pronunciation" || utteranceId == "sentence_pronunciation") {
                             runOnUiThread {
                                 activeSpeakingIndex = -1
                             }
@@ -560,6 +580,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
                     @Deprecated("Deprecated in Java")
                     override fun onError(utteranceId: String?) {
+                        runOnUiThread {
+                            activeSpeakingIndex = -1
+                        }
+                    }
+
+                    override fun onError(utteranceId: String?, errorCode: Int) {
                         runOnUiThread {
                             activeSpeakingIndex = -1
                         }
@@ -575,7 +601,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun speakText(text: String, queueMode: Int) {
         if (isTtsReady && tts != null) {
-            tts?.speak(text, queueMode, null, null)
+            try {
+                tts?.speak(text, queueMode, null, null)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "speakText failed: ${e.message}")
+            }
         } else {
             // Buffer keystroke during cold start so no initial letters are lost
             pendingSpeechText = text
