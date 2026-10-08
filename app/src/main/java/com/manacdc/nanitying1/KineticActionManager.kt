@@ -30,6 +30,7 @@ object KineticActionManager {
         "FAST" to KineticActionType.FAST,
         "SPEED" to KineticActionType.FAST,
         "RUN" to KineticActionType.FAST,
+        "ZOOM" to KineticActionType.FAST,
 
         "SLOW" to KineticActionType.SLOW,
         "CRAWL" to KineticActionType.SLOW,

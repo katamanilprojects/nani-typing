@@ -35,12 +35,27 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+enum class AppScreen {
+    MENU,
+    TYPING_LEVEL_1,
+    SETTINGS
+}
+
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
     private var isEngineReady by mutableStateOf(false)
     private var pendingSpeechText: String? = null
+
+    // Navigation & Screen State
+    private var currentScreen by mutableStateOf(AppScreen.MENU)
+    private var selectedMenuCard by mutableStateOf(MenuCard.LEVEL_1)
+    private var selectedSettingsRow by mutableStateOf(SettingsRow.SPEED)
+    private var photoCount by mutableIntStateOf(0)
+    private var speechSpeed by mutableFloatStateOf(AppSettings.DEFAULT_SPEED)
+    private var speechPitch by mutableFloatStateOf(AppSettings.DEFAULT_PITCH)
+    private var speechLocaleCode by mutableStateOf(AppSettings.DEFAULT_LOCALE)
 
     private var typedText by mutableStateOf("")
     private var activeSpeakingIndex by mutableStateOf(-1)
@@ -56,6 +71,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        speechSpeed = AppSettings.getSpeed(applicationContext)
+        speechPitch = AppSettings.getPitch(applicationContext)
+        speechLocaleCode = AppSettings.getLocaleCode(applicationContext)
+
         try {
             tts = TextToSpeech(applicationContext, this)
         } catch (e: Throwable) {
@@ -63,122 +82,161 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
 
         // Index real-world trigger images on startup (Zero-DB Filename-as-Trigger)
-        ImageManager.reloadRegistry(applicationContext)
+        photoCount = ImageManager.reloadRegistry(applicationContext)
 
         setContent {
-            val scrollState = rememberScrollState()
-
-            LaunchedEffect(typedText) {
-                scrollState.animateScrollTo(scrollState.maxValue)
-            }
-
-            // Auto-dismiss real-world photo after 2.8 seconds
-            LaunchedEffect(activeImageBitmap) {
-                if (activeImageBitmap != null) {
-                    delay(2800)
-                    activeImageBitmap = null
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFFFFFDD0)) // Warm cream background
-                    .padding(20.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (typedText.isEmpty()) {
-                    Text(
-                        text = "NANI TYPING!",
-                        fontSize = 60.sp,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.SansSerif,
-                        color = if (isEngineReady) Color.LightGray else Color.LightGray.copy(alpha = 0.35f)
+            when (currentScreen) {
+                AppScreen.MENU -> {
+                    MainMenuScreen(
+                        selectedCard = selectedMenuCard,
+                        onSelectCard = { selectedMenuCard = it },
+                        onLaunchCard = { card ->
+                            currentScreen = if (card == MenuCard.LEVEL_1) AppScreen.TYPING_LEVEL_1 else AppScreen.SETTINGS
+                        }
                     )
-                } else {
-                    Column(
+                }
+
+                AppScreen.SETTINGS -> {
+                    SettingsScreen(
+                        selectedRow = selectedSettingsRow,
+                        photoCount = photoCount,
+                        speed = speechSpeed,
+                        pitch = speechPitch,
+                        localeCode = speechLocaleCode,
+                        onCycleSpeed = {
+                            handleSettingsRowAction(SettingsRow.SPEED, direction = 1)
+                        },
+                        onCyclePitch = {
+                            handleSettingsRowAction(SettingsRow.PITCH, direction = 1)
+                        },
+                        onCycleLocale = {
+                            handleSettingsRowAction(SettingsRow.LOCALE, direction = 1)
+                        },
+                        onReloadPhotos = {
+                            photoCount = ImageManager.reloadRegistry(applicationContext)
+                        },
+                        onBackToMenu = {
+                            currentScreen = AppScreen.MENU
+                        }
+                    )
+                }
+
+                AppScreen.TYPING_LEVEL_1 -> {
+                    val scrollState = rememberScrollState()
+
+                    LaunchedEffect(typedText) {
+                        scrollState.animateScrollTo(scrollState.maxValue)
+                    }
+
+                    // Auto-dismiss real-world photo after 2.8 seconds
+                    LaunchedEffect(activeImageBitmap) {
+                        if (activeImageBitmap != null) {
+                            delay(2800)
+                            activeImageBitmap = null
+                        }
+                    }
+
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(scrollState),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                            .fillMaxSize()
+                            .background(Color(0xFFFFFDD0)) // Warm cream background
+                            .padding(20.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        @OptIn(ExperimentalLayoutApi::class)
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            maxItemsInEachRow = 100
-                        ) {
-                            // 🟢 FLAT INDEX FIXED LOOP: Direct 1:1 match with string indices
-                            typedText.forEachIndexed { index, char ->
-                                if (char == '\n') {
-                                    // Forces an organic layout break to a new line without breaking string index synchronization
-                                    Spacer(modifier = Modifier.fillMaxWidth())
-                                } else {
-                                    val isCurrentSpeaking = index == activeSpeakingIndex
+                        if (typedText.isEmpty()) {
+                            Text(
+                                text = "NANI TYPING!",
+                                fontSize = 60.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.SansSerif,
+                                color = if (isEngineReady) Color.LightGray else Color.LightGray.copy(alpha = 0.35f)
+                            )
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(scrollState),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                @OptIn(ExperimentalLayoutApi::class)
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    maxItemsInEachRow = 100
+                                ) {
+                                    // 🟢 FLAT INDEX FIXED LOOP: Direct 1:1 match with string indices
+                                    typedText.forEachIndexed { index, char ->
+                                        if (char == '\n') {
+                                            // Forces an organic layout break to a new line without breaking string index synchronization
+                                            Spacer(modifier = Modifier.fillMaxWidth())
+                                        } else {
+                                            val isCurrentSpeaking = index == activeSpeakingIndex
 
-                                    val animatedScale by animateFloatAsState(
-                                        targetValue = if (isCurrentSpeaking) 1.5f else 1.0f,
-                                        animationSpec = tween(durationMillis = 100),
-                                        label = "FontScale"
-                                    )
+                                            val animatedScale by animateFloatAsState(
+                                                targetValue = if (isCurrentSpeaking) 1.5f else 1.0f,
+                                                animationSpec = tween(durationMillis = 100),
+                                                label = "FontScale"
+                                            )
 
-                                    Text(
-                                        text = char.toString(),
-                                        fontSize = 55.sp,
-                                        fontWeight = if (isCurrentSpeaking) FontWeight.ExtraBold else FontWeight.Black,
-                                        fontFamily = FontFamily.SansSerif,
-                                        modifier = Modifier
-                                            .padding(horizontal = 4.dp)
-                                            .scale(animatedScale),
-                                        color = if (isCurrentSpeaking) Color(0xFFFF4500) else Color(0xFF0B1B3D)
-                                    )
+                                            Text(
+                                                text = char.toString(),
+                                                fontSize = 55.sp,
+                                                fontWeight = if (isCurrentSpeaking) FontWeight.ExtraBold else FontWeight.Black,
+                                                fontFamily = FontFamily.SansSerif,
+                                                modifier = Modifier
+                                                    .padding(horizontal = 4.dp)
+                                                    .scale(animatedScale),
+                                                color = if (isCurrentSpeaking) Color(0xFFFF4500) else Color(0xFF0B1B3D)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
-                }
 
-                // 🟢 LEVEL 2: REAL-WORLD IMAGE ASSOCIATION OVERLAY (MINIMALIST)
-                AnimatedVisibility(
-                    visible = activeImageBitmap != null,
-                    enter = fadeIn(tween(250)) + scaleIn(initialScale = 0.88f, animationSpec = tween(250)),
-                    exit = fadeOut(tween(350)) + scaleOut(targetScale = 0.95f, animationSpec = tween(350))
-                ) {
-                    activeImageBitmap?.let { bmp ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.25f)),
-                            contentAlignment = Alignment.Center
+                        // 🟢 LEVEL 2: REAL-WORLD IMAGE ASSOCIATION OVERLAY (MINIMALIST)
+                        AnimatedVisibility(
+                            visible = activeImageBitmap != null,
+                            enter = fadeIn(tween(250)) + scaleIn(initialScale = 0.88f, animationSpec = tween(250)),
+                            exit = fadeOut(tween(350)) + scaleOut(targetScale = 0.95f, animationSpec = tween(350))
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(24.dp),
-                                color = Color.White,
-                                shadowElevation = 10.dp,
-                                modifier = Modifier
-                                    .padding(32.dp)
-                                    .wrapContentSize()
-                            ) {
-                                Image(
-                                    bitmap = bmp,
-                                    contentDescription = null,
+                            activeImageBitmap?.let { bmp ->
+                                Box(
                                     modifier = Modifier
-                                        .sizeIn(maxWidth = 640.dp, maxHeight = 480.dp)
-                                        .padding(12.dp),
-                                    contentScale = ContentScale.Fit
-                                )
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.25f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(24.dp),
+                                        color = Color.White,
+                                        shadowElevation = 10.dp,
+                                        modifier = Modifier
+                                            .padding(32.dp)
+                                            .wrapContentSize()
+                                    ) {
+                                        Image(
+                                            bitmap = bmp,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .sizeIn(maxWidth = 640.dp, maxHeight = 480.dp)
+                                                .padding(12.dp),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    }
+                                }
                             }
                         }
-                    }
-                }
 
-                // 🟢 LEVEL 3: KINETIC ACTION PHYSICS OVERLAY (MINIMALIST)
-                activeKineticAction?.let { action ->
-                    KineticPhysicsOverlay(
-                        action = action,
-                        onFinish = { activeKineticAction = null }
-                    )
+                        // 🟢 LEVEL 3: KINETIC ACTION PHYSICS OVERLAY (MINIMALIST)
+                        activeKineticAction?.let { action ->
+                            KineticPhysicsOverlay(
+                                action = action,
+                                onFinish = { activeKineticAction = null }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -198,64 +256,153 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         event?.let {
             // 🔴 PRE-SCHOOL DEFENSIVE FILTER: Ignore hardware key auto-repeat
-            // When a young child presses and holds a plastic key, hardware auto-repeat triggers 30 times/sec.
-            // Ignoring repeat events prevents machine-gun audio stutter and runaway text.
             if (it.repeatCount > 0) {
                 return true
             }
 
             val pressedChar = it.unicodeChar.toChar()
 
-            if (keyCode == KeyEvent.KEYCODE_ENTER) {
-                activeSpeakingIndex = -1
-                checkAndSpeakLastWord()
-                typedText += "\n"
-                return true
-            }
-
-            if (keyCode == KeyEvent.KEYCODE_ESCAPE || keyCode == KeyEvent.KEYCODE_BACK) {
-                if (typedText.isNotEmpty()) {
-                    tts?.stop()
-                    typedText = ""
-                    activeSpeakingIndex = -1
-                    speakText("Reset", TextToSpeech.QUEUE_FLUSH)
-                    return true
-                } else {
+            when (currentScreen) {
+                AppScreen.MENU -> {
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+                        selectedMenuCard = MenuCard.LEVEL_1
+                        return true
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                        selectedMenuCard = MenuCard.SETTINGS
+                        return true
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_SPACE) {
+                        currentScreen = if (selectedMenuCard == MenuCard.LEVEL_1) AppScreen.TYPING_LEVEL_1 else AppScreen.SETTINGS
+                        return true
+                    }
+                    // Child-friendly auto-enter: If child strikes any letter/digit directly on menu, launch Level 1 and type it!
+                    if (it.unicodeChar != 0 && pressedChar.isLetterOrDigit()) {
+                        currentScreen = AppScreen.TYPING_LEVEL_1
+                        activeSpeakingIndex = -1
+                        speakText(pressedChar.uppercaseChar().toString(), TextToSpeech.QUEUE_FLUSH)
+                        typedText += pressedChar
+                        return true
+                    }
                     return super.onKeyDown(keyCode, event)
                 }
-            }
 
-            if (it.unicodeChar != 0 && (pressedChar.isLetterOrDigit() || pressedChar.isWhitespace())) {
-                activeSpeakingIndex = -1
-                if (pressedChar.isWhitespace()) {
-                    checkAndSpeakLastWord()
-                } else {
-                    speakText(pressedChar.uppercaseChar().toString(), TextToSpeech.QUEUE_FLUSH)
+                AppScreen.SETTINGS -> {
+                    val rows = SettingsRow.entries
+                    val currentIndex = rows.indexOf(selectedSettingsRow)
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                        selectedSettingsRow = rows[(currentIndex - 1 + rows.size) % rows.size]
+                        return true
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                        selectedSettingsRow = rows[(currentIndex + 1) % rows.size]
+                        return true
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+                        handleSettingsRowAction(selectedSettingsRow, direction = -1)
+                        return true
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
+                        handleSettingsRowAction(selectedSettingsRow, direction = 1)
+                        return true
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_ESCAPE || keyCode == KeyEvent.KEYCODE_BACK) {
+                        currentScreen = AppScreen.MENU
+                        return true
+                    }
+                    return super.onKeyDown(keyCode, event)
                 }
 
-                typedText += pressedChar
-                return true
-            }
+                AppScreen.TYPING_LEVEL_1 -> {
+                    if (keyCode == KeyEvent.KEYCODE_ENTER) {
+                        activeSpeakingIndex = -1
+                        checkAndSpeakOnEnter()
+                        typedText += "\n"
+                        return true
+                    }
 
-            if (keyCode == KeyEvent.KEYCODE_DEL) {
-                if (typedText.isNotEmpty()) {
-                    tts?.stop()
-                    activeSpeakingIndex = -1
-                    typedText = typedText.dropLast(1)
+                    if (keyCode == KeyEvent.KEYCODE_ESCAPE || keyCode == KeyEvent.KEYCODE_BACK) {
+                        if (typedText.isNotEmpty()) {
+                            tts?.stop()
+                            typedText = ""
+                            activeSpeakingIndex = -1
+                            speakText("Reset", TextToSpeech.QUEUE_FLUSH)
+                            return true
+                        } else {
+                            // Canvas is already empty: Escape / Back returns to Main Menu
+                            currentScreen = AppScreen.MENU
+                            return true
+                        }
+                    }
+
+                    if (it.unicodeChar != 0 && (pressedChar.isLetterOrDigit() || pressedChar.isWhitespace())) {
+                        activeSpeakingIndex = -1
+                        if (pressedChar.isWhitespace()) {
+                            checkAndSpeakOnSpace()
+                        } else {
+                            speakText(pressedChar.uppercaseChar().toString(), TextToSpeech.QUEUE_FLUSH)
+                        }
+
+                        typedText += pressedChar
+                        return true
+                    }
+
+                    if (keyCode == KeyEvent.KEYCODE_DEL) {
+                        if (typedText.isNotEmpty()) {
+                            tts?.stop()
+                            activeSpeakingIndex = -1
+                            typedText = typedText.dropLast(1)
+                        }
+                        return true
+                    }
                 }
-                return true
             }
         }
         return super.onKeyDown(keyCode, event)
     }
 
+    private fun handleSettingsRowAction(row: SettingsRow, direction: Int = 1) {
+        when (row) {
+            SettingsRow.SPEED -> {
+                val idx = AppSettings.SPEED_OPTIONS.indexOfFirst { it.first == speechSpeed }
+                val nextIdx = (idx + direction + AppSettings.SPEED_OPTIONS.size) % AppSettings.SPEED_OPTIONS.size
+                val next = AppSettings.SPEED_OPTIONS[nextIdx].first
+                speechSpeed = next
+                AppSettings.setSpeed(applicationContext, next)
+                AppSettings.applyToTts(applicationContext, tts)
+            }
+            SettingsRow.PITCH -> {
+                val idx = AppSettings.PITCH_OPTIONS.indexOfFirst { it.first == speechPitch }
+                val nextIdx = (idx + direction + AppSettings.PITCH_OPTIONS.size) % AppSettings.PITCH_OPTIONS.size
+                val next = AppSettings.PITCH_OPTIONS[nextIdx].first
+                speechPitch = next
+                AppSettings.setPitch(applicationContext, next)
+                AppSettings.applyToTts(applicationContext, tts)
+            }
+            SettingsRow.LOCALE -> {
+                val idx = AppSettings.LOCALE_OPTIONS.indexOfFirst { it.first == speechLocaleCode }
+                val nextIdx = (idx + direction + AppSettings.LOCALE_OPTIONS.size) % AppSettings.LOCALE_OPTIONS.size
+                val next = AppSettings.LOCALE_OPTIONS[nextIdx].first
+                speechLocaleCode = next
+                AppSettings.setLocaleCode(applicationContext, next)
+                AppSettings.applyToTts(applicationContext, tts)
+            }
+            SettingsRow.RELOAD_STORAGE -> {
+                photoCount = ImageManager.reloadRegistry(applicationContext)
+            }
+            SettingsRow.BACK_TO_MENU -> {
+                currentScreen = AppScreen.MENU
+            }
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         // Re-index images on resume so hot-plugged USB drives or newly copied photos appear immediately
-        ImageManager.reloadRegistry(applicationContext)
+        photoCount = ImageManager.reloadRegistry(applicationContext)
     }
 
-    private fun checkAndSpeakLastWord() {
+    private fun checkAndSpeakOnSpace() {
         if (typedText.isNotEmpty() && !typedText.endsWith(" ") && !typedText.endsWith("\n")) {
             val lastWord = typedText.split("\\s+|\n".toRegex()).lastOrNull()?.uppercase() ?: ""
 
@@ -264,7 +411,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 val isSingleLetter = lastWord.length == 1
 
                 if (!isNumber && !isSingleLetter) {
-                    // 🟢 LEVEL 2: Find matching real-world photo and preload asynchronously
+                    // Level 2 & 3 triggers for word
                     val matchingFile = ImageManager.findImageFile(lastWord)
                     if (matchingFile != null) {
                         lifecycleScope.launch {
@@ -275,18 +422,55 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         pendingImageBitmap = null
                     }
 
-                    // 🟢 LEVEL 3: Check for kinetic action physical dynamics
                     pendingKineticAction = KineticActionManager.findAction(lastWord)
 
-                    // 🟢 PURE REVERT INDEXING: Matches exactly how it functioned in your early builds
                     val wordStartIndex = typedText.length - lastWord.length
-                    speakWholeWordFlow(lastWord, wordStartIndex)
+                    speakWholeWordFlow(lastWord, wordStartIndex, sentenceToSpeakAfter = null)
                 }
             }
         }
     }
 
-    private fun speakWholeWordFlow(word: String, startIndex: Int) {
+    private fun checkAndSpeakOnEnter() {
+        val currentLine = typedText.lines().lastOrNull()?.trim() ?: ""
+        if (currentLine.isEmpty()) return
+
+        // If the last word was just being typed without space, spell it first, then speak sentence!
+        if (!typedText.endsWith(" ") && !typedText.endsWith("\n")) {
+            val lastWord = typedText.split("\\s+|\n".toRegex()).lastOrNull()?.uppercase() ?: ""
+
+            if (lastWord.isNotEmpty()) {
+                val isNumber = lastWord.all { c -> c.isDigit() }
+                val isSingleLetter = lastWord.length == 1
+
+                if (!isNumber && !isSingleLetter) {
+                    val matchingFile = ImageManager.findImageFile(lastWord)
+                    if (matchingFile != null) {
+                        lifecycleScope.launch {
+                            val bmp = ImageManager.loadSampledBitmap(matchingFile)
+                            pendingImageBitmap = bmp
+                        }
+                    } else {
+                        pendingImageBitmap = null
+                    }
+
+                    pendingKineticAction = KineticActionManager.findAction(lastWord)
+
+                    val wordStartIndex = typedText.length - lastWord.length
+                    // Spell word -> Speak word -> Pause -> Read all words in sentence!
+                    speakWholeWordFlow(lastWord, wordStartIndex, sentenceToSpeakAfter = currentLine)
+                    return
+                }
+            }
+        }
+
+        // If word was already finished on space, read the full sentence directly!
+        if (isTtsReady && tts != null) {
+            tts?.speak(currentLine, TextToSpeech.QUEUE_FLUSH, null, "sentence_pronunciation")
+        }
+    }
+
+    private fun speakWholeWordFlow(word: String, startIndex: Int, sentenceToSpeakAfter: String? = null) {
         if (isTtsReady && tts != null) {
             var queueMode = TextToSpeech.QUEUE_FLUSH
 
@@ -299,6 +483,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
             tts?.playSilentUtterance(400, TextToSpeech.QUEUE_ADD, "clear_highlight")
             tts?.speak(word, TextToSpeech.QUEUE_ADD, null, "final_word_pronunciation")
+
+            // 🟢 ENTER KEY ENHANCEMENT: Read all words together like a sentence!
+            if (!sentenceToSpeakAfter.isNullOrBlank()) {
+                tts?.playSilentUtterance(450, TextToSpeech.QUEUE_ADD, "pause_before_sentence")
+                tts?.speak(sentenceToSpeakAfter, TextToSpeech.QUEUE_ADD, null, "sentence_pronunciation")
+            }
         }
     }
 
@@ -324,8 +514,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
             if (result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED) {
                 isTtsReady = true
-                tts?.setSpeechRate(0.70f)
-                tts?.setPitch(1.12f)
+                AppSettings.applyToTts(applicationContext, tts)
 
                 // Immediate low-latency silence pulse to wake up TV HDMI sink
                 tts?.playSilentUtterance(50, TextToSpeech.QUEUE_FLUSH, "warmup_audio_sink")
